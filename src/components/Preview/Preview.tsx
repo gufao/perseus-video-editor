@@ -1,6 +1,5 @@
 import { useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
-import clsx from 'clsx';
 
 const formatTime = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -75,16 +74,6 @@ const Preview = () => {
     }
   };
 
-  const handlePlay = () => {
-    if (isSeeking.current) return;
-    setIsPlaying(true);
-  };
-
-  const handlePause = () => {
-    if (isSeeking.current) return;
-    setIsPlaying(false);
-  };
-
   // UI Handlers for Custom Controls
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -109,8 +98,6 @@ const Preview = () => {
 
   const handleSeekStart = () => {
     isSeeking.current = true;
-    // Optionally pause while seeking
-    // setIsPlaying(false); 
   };
 
   const handleSeekEnd = () => {
@@ -151,45 +138,27 @@ const Preview = () => {
 
   if (!activeClip) {
     return (
-      <div className="text-neutral-600 flex flex-col items-center">
+      <div className="text-text-secondary flex flex-col items-center justify-center h-full">
         <div className="mb-2">No clip selected</div>
-        <div className="text-xs text-neutral-500">Select a clip from the Project Files or Timeline</div>
+        <div className="text-xs text-text-muted">Select a clip from the Project Files or Timeline</div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-black relative group">
+    <div className="w-full h-full flex flex-col bg-bg-primary relative group">
       {/* Video Area */}
       <div className="flex-1 flex items-center justify-center bg-bg-primary relative overflow-hidden">
-        {activeClip ? (
-          <video
-            ref={videoRef}
-            src={`file://${activeClip.path}`}
-            className="max-h-full max-w-full shadow-2xl"
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onEnded={() => setIsPlaying(false)}
-            onClick={togglePlay}
-            onError={(e) => console.error('Video Error:', e, activeClip.path)}
-          />
-        ) : (
-          <div className="text-text-muted flex flex-col items-center">
-            <div className="mb-4 opacity-20">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                <line x1="7" y1="2" x2="7" y2="22"></line>
-                <line x1="17" y1="2" x2="17" y2="22"></line>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <line x1="2" y1="7" x2="7" y2="7"></line>
-                <line x1="2" y1="17" x2="7" y2="17"></line>
-                <line x1="17" y1="17" x2="22" y2="17"></line>
-                <line x1="17" y1="7" x2="22" y2="7"></line>
-              </svg>
-            </div>
-            <div className="text-xs text-text-muted">Select a clip from the Project Files or Timeline</div>
-          </div>
-        )}
+        <video
+          ref={videoRef}
+          src={`file://${activeClip.path}`}
+          className="max-h-full max-w-full shadow-2xl"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={() => setIsPlaying(false)}
+          onClick={togglePlay}
+          onError={(e) => console.error('Video Error:', e, activeClip.path)}
+        />
       </div>
 
       {/* Transport Controls */}
@@ -218,6 +187,8 @@ const Preview = () => {
           step="0.01"
           value={currentTime}
           onChange={handleSeek}
+          onMouseDown={handleSeekStart}
+          onMouseUp={handleSeekEnd}
           disabled={!activeClip}
           className="flex-1 h-1 bg-bg-surface rounded-lg appearance-none cursor-pointer accent-accent hover:accent-accent-hover"
         />

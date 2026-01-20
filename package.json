@@ -2,6 +2,8 @@
   "name": "perseus",
   "private": true,
   "version": "1.0.0",
+  "description": "A lightweight desktop video editor for quick cuts, trims, and exports.",
+  "author": "Perseus Team",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -10,10 +12,10 @@
     "dev:electron": "tsc -p tsconfig.electron.json && concurrently -k \"tsc -p tsconfig.electron.json -w\" \"wait-on http-get://localhost:5173 && electron .\"",
     "build": "tsc -b && tsc -p tsconfig.electron.json && vite build",
     "dist": "npm run build && electron-builder",
-    "dist:all": "npm run build && electron-builder -mwl",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder -m --universal && electron-builder -wl --x64",
+    "dist:mac": "npm run build && electron-builder --mac --universal",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:linux": "npm run build && electron-builder --linux --x64",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -55,6 +57,20 @@
     "directories": {
       "output": "release"
     },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/logo.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/logo.png",
+      "category": "Video",
+      "executableName": "perseus"
+    },
     "files": [
       "dist-electron/**/*",
       "dist/**/*"
@@ -67,15 +83,6 @@
           "**/*"
         ]
       }
-    ],
-    "mac": {
-      "target": "dmg"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": "AppImage"
-    }
+    ]
   }
 }

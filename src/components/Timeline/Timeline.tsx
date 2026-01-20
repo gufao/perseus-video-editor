@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
 import clsx from 'clsx';
 
