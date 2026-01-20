@@ -90,7 +90,13 @@ const Preview = () => {
     setIsPlaying(!isPlaying);
   };
 
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLoadedMetadata = () => {
+    if (videoRef.current && activeClip) {
+       // Optional: Force a seek to start time if needed, though useEffect handles this
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
     
@@ -155,57 +161,69 @@ const Preview = () => {
   return (
     <div className="w-full h-full flex flex-col bg-black relative group">
       {/* Video Area */}
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden" onClick={togglePlay}>
-        <video
-          ref={videoRef}
-          className="max-w-full max-h-full shadow-lg"
-          // Controls removed
-          onTimeUpdate={handleTimeUpdate}
-          onPlay={handlePlay}
-          onPause={handlePause}
-        />
-        
-        {/* Play overlay if paused */}
-        {!isPlaying && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-black/50 rounded-full p-4">
-              <svg className="w-12 h-12 text-white opacity-80" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <div className="flex-1 flex items-center justify-center bg-bg-primary relative overflow-hidden">
+        {activeClip ? (
+          <video
+            ref={videoRef}
+            src={`file://${activeClip.path}`}
+            className="max-h-full max-w-full shadow-2xl"
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onEnded={() => setIsPlaying(false)}
+            onClick={togglePlay}
+            onError={(e) => console.error('Video Error:', e, activeClip.path)}
+          />
+        ) : (
+          <div className="text-text-muted flex flex-col items-center">
+            <div className="mb-4 opacity-20">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="2" y1="7" x2="7" y2="7"></line>
+                <line x1="2" y1="17" x2="7" y2="17"></line>
+                <line x1="17" y1="17" x2="22" y2="17"></line>
+                <line x1="17" y1="7" x2="22" y2="7"></line>
+              </svg>
             </div>
+            <div className="text-xs text-text-muted">Select a clip from the Project Files or Timeline</div>
           </div>
         )}
       </div>
 
-      {/* Custom Controls */}
-      <div className="h-12 bg-neutral-900 border-t border-neutral-800 flex items-center px-4 space-x-4">
+      {/* Transport Controls */}
+      <div className="h-12 bg-bg-elevated border-t border-border-primary flex items-center px-4 space-x-4">
         <button 
           onClick={togglePlay}
-          className="text-white hover:text-blue-400 focus:outline-none"
+          disabled={!activeClip}
+          className="text-text-primary hover:text-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isPlaying ? (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path></svg>
           ) : (
-             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
           )}
         </button>
 
-        <div className="text-xs font-mono text-neutral-400 w-20 text-center">
-          {formatTime(currentTime)}
+        <div className="text-xs font-mono text-text-secondary w-20 text-center">
+            {formatTime(currentTime)}
         </div>
 
-        <input 
+        {/* Scrubber (Simple) */}
+        <input
           type="range"
-          min={0}
-          max={activeClip.duration}
-          step={0.01}
+          min="0"
+          max={activeClip ? activeClip.duration : 100}
+          step="0.01"
           value={currentTime}
-          onChange={handleSeekChange}
-          onMouseDown={handleSeekStart}
-          onMouseUp={handleSeekEnd}
-          className="flex-1 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400"
+          onChange={handleSeek}
+          disabled={!activeClip}
+          className="flex-1 h-1 bg-bg-surface rounded-lg appearance-none cursor-pointer accent-accent hover:accent-accent-hover"
         />
-
-        <div className="text-xs font-mono text-neutral-500 w-20 text-center">
-          {formatTime(activeClip.duration)}
+        
+        <div className="text-xs font-mono text-text-muted w-20 text-center">
+            {activeClip ? formatTime(activeClip.duration) : "00:00.0"}
         </div>
       </div>
     </div>

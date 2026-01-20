@@ -13,16 +13,23 @@ export interface Clip {
   waveform?: string;
 }
 
+export interface Notification {
+  type: 'success' | 'error';
+  message: string;
+}
+
 interface ProjectState {
   clips: Clip[];
   activeClipId: string | null;
   currentTime: number;
   isPlaying: boolean;
+  notification: Notification | null;
   addClip: (clip: Omit<Clip, 'id' | 'duration' | 'start' | 'end'> & { duration: number }) => void;
   removeClip: (id: string) => void;
   setActiveClip: (id: string | null) => void;
   setCurrentTime: (time: number) => void;
   setIsPlaying: (isPlaying: boolean) => void;
+  setNotification: (notification: Notification | null) => void;
   splitClip: (id: string, time: number) => void;
   reorderClips: (startIndex: number, endIndex: number) => void;
   updateClip: (id: string, updates: Partial<Clip>) => void;
@@ -33,6 +40,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
   activeClipId: null,
   currentTime: 0,
   isPlaying: false,
+  notification: null,
   addClip: (clip) =>
     set((state) => ({
       clips: [...state.clips, { 
@@ -51,6 +59,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
   setActiveClip: (id) => set({ activeClipId: id, currentTime: 0, isPlaying: false }),
   setCurrentTime: (time) => set({ currentTime: time }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
+  setNotification: (notification) => set({ notification }),
   reorderClips: (startIndex, endIndex) => set((state) => {
     const newClips = Array.from(state.clips);
     const [removed] = newClips.splice(startIndex, 1);

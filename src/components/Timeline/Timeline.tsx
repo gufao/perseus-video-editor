@@ -56,19 +56,19 @@ const Timeline = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-neutral-900">
+    <div className="flex-1 flex flex-col overflow-hidden bg-bg-secondary">
       {/* Timeline Toolbar (Zoom) */}
-      <div className="h-8 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-900/50">
-        <div className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">Timeline</div>
+      <div className="h-8 border-b border-border-primary flex items-center justify-between px-4 bg-bg-elevated/50 backdrop-blur-sm">
+        <div className="text-[10px] uppercase tracking-wider text-text-secondary font-bold">Timeline</div>
         <div className="flex items-center space-x-3">
-          <span className="text-[10px] text-neutral-500">Zoom</span>
+          <span className="text-[10px] text-text-secondary">Zoom</span>
           <input 
             type="range" 
             min="1" 
             max="100" 
             value={pixelsPerSecond} 
             onChange={(e) => setPixelsPerSecond(parseInt(e.target.value))}
-            className="w-24 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-24 h-1 bg-bg-elevated rounded-lg appearance-none cursor-pointer accent-accent"
           />
         </div>
       </div>
@@ -89,8 +89,10 @@ const Timeline = () => {
                  onDrop={() => handleDrop(index)}
                  onClick={() => setActiveClip(clip.id)}
                  className={clsx(
-                   "h-20 rounded border border-neutral-700 cursor-pointer select-none transition flex flex-col justify-between relative overflow-visible group",
-                   isActive ? "bg-blue-900/40 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]" : "bg-neutral-800 hover:bg-neutral-750",
+                   "h-20 rounded border cursor-pointer select-none transition flex flex-col justify-between relative overflow-visible group",
+                   isActive 
+                    ? "bg-accent-glow border-accent shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
+                    : "bg-bg-elevated border-border-primary hover:bg-bg-surface hover:border-text-muted",
                    draggedIndex === index && "opacity-50 grayscale"
                  )}
                  style={{ 
@@ -106,34 +108,37 @@ const Timeline = () => {
                >
                  {/* Trim Handles */}
                  <div 
-                   className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize bg-blue-500/0 group-hover:bg-blue-500/20 hover:!bg-blue-500 z-30 transition-colors rounded-l"
+                   className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize bg-accent/0 group-hover:bg-accent/20 hover:!bg-accent z-30 transition-colors rounded-l"
                    onMouseDown={(e) => startTrim(e, clip.id, 'start', clip.start)}
                  />
                  <div 
-                   className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-blue-500/0 group-hover:bg-blue-500/20 hover:!bg-blue-500 z-30 transition-colors rounded-r"
+                   className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-accent/0 group-hover:bg-accent/20 hover:!bg-accent z-30 transition-colors rounded-r"
                    onMouseDown={(e) => startTrim(e, clip.id, 'end', clip.end)}
                  />
 
                  <div className="p-2 overflow-hidden pointer-events-none">
-                    <div className="text-[10px] font-medium truncate text-neutral-300 z-10">{clip.name}</div>
+                    <div className={clsx(
+                        "text-[10px] font-medium truncate z-10",
+                        isActive ? "text-accent" : "text-text-secondary"
+                    )}>{clip.name}</div>
                  </div>
                  
                  {/* Playhead for active clip (local) */}
                  {isActive && (
                    <div 
-                     className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20 shadow-[0_0_8px_rgba(239,44,44,0.5)] pointer-events-none"
+                     className="absolute top-0 bottom-0 w-0.5 bg-accent z-20 shadow-[0_0_8px_rgba(245,158,11,0.5)] pointer-events-none"
                      style={{ left: `${currentTime * pixelsPerSecond}px` }}
                    />
                  )}
                  
                  <div className="p-2 pt-0 z-10 text-right pointer-events-none">
-                    <div className="text-[9px] text-neutral-500">{clip.duration.toFixed(1)}s</div>
+                    <div className="text-[9px] text-text-muted">{clip.duration.toFixed(1)}s</div>
                  </div>
                </div>
              );
            })}
            {clips.length === 0 && (
-             <div className="text-neutral-600 text-sm ml-4 italic">Import videos to start editing</div>
+             <div className="text-text-muted text-sm ml-4 italic">Import videos to start editing</div>
            )}
         </div>
       </div>
