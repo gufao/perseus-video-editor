@@ -93,7 +93,7 @@ export const generateWaveform = (filePath: string): Promise<string> => {
 
     ffmpeg(filePath)
       .complexFilter([
-        'aformat=channel_layouts=mono,showwavespic=s=2048x120:colors=#0ea5e9[outv]'
+        'aformat=channel_layouts=mono,showwavespic=s=2048x240:colors=#0ea5e9,scale=2048:120,pad=2048:120:0:(oh-ih)/2:color=black@0[outv]'
       ])
       .outputOptions(['-map [outv]', '-f image2', '-vframes 1'])
       .output(outputPath)

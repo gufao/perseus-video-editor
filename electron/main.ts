@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import ffmpeg, { exportVideo, generateThumbnail, generateWaveform } from './ffmpeg/processor.js';
@@ -6,10 +6,15 @@ import ffmpeg, { exportVideo, generateThumbnail, generateWaveform } from './ffmp
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Set the application name for the menu bar
+app.setName('Perseus');
+
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    title: 'Perseus',
+    icon: path.join(__dirname, app.isPackaged ? '../dist/logo.png' : '../public/logo.png'),
     width: 1200,
     height: 800,
     webPreferences: {
@@ -27,6 +32,12 @@ function createWindow() {
     mainWindow.loadURL(devUrl);
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  // Set dock icon on macOS
+  if (process.platform === 'darwin' && app.dock) {
+    const iconPath = path.join(__dirname, app.isPackaged ? '../dist/logo.png' : '../public/logo.png');
+    app.dock.setIcon(iconPath);
   }
 
   // mainWindow.webContents.openDevTools();

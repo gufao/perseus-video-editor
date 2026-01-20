@@ -99,8 +99,8 @@ const Timeline = () => {
                     marginLeft: index > 0 ? '2px' : '0',
                     // Waveform styles
                     backgroundImage: clip.waveform ? `url(${clip.waveform})` : undefined,
-                    backgroundSize: `${clip.sourceDuration * pixelsPerSecond}px 100%`,
-                    backgroundPosition: `-${clip.start * pixelsPerSecond}px 0`,
+                    backgroundSize: `${clip.sourceDuration * pixelsPerSecond}px 200%`,
+                    backgroundPosition: `-${clip.start * pixelsPerSecond}px center`,
                     backgroundRepeat: 'no-repeat'
                  }}
                >
