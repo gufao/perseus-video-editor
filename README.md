@@ -15,7 +15,7 @@
 
 ## Download
 
-Download the latest version for your platform from the [Releases Page](https://github.com/gufao/perseus-video-editor/releases/latest) or our [Website](https://perseus-landing.vercel.app).
+Download the latest version for your platform from the [Releases Page](https://github.com/gufao/perseus-video-editor/releases/latest) or our [Website](https://perseus.linhares.sc).
 
 - **macOS**: Universal binary (Intel & Apple Silicon)
 - **Windows**: x64 Installer
