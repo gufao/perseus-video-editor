@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
 import clsx from 'clsx';
 
 const FilePanel = () => {
   const { clips, addClip, setActiveClip, activeClipId } = useProjectStore();
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleImport = async () => {
     console.log('Import clicked, checking API...', window.electronAPI);
@@ -16,6 +18,7 @@ const FilePanel = () => {
       console.log('File paths selected:', filePaths);
       
       if (filePaths && filePaths.length > 0) {
+        setIsImporting(true);
         for (const path of filePaths) {
           console.log('Processing:', path);
           const name = path.split('/').pop() || 'Unknown';
@@ -64,12 +67,20 @@ const FilePanel = () => {
     } catch (e) {
       console.error('Error during import:', e);
       alert('Error during import: ' + e);
+    } finally {
+      setIsImporting(false);
     }
   };
 
     return (
 
-      <div className="flex-1 flex flex-col h-full bg-bg-secondary">
+      <div className="flex-1 flex flex-col h-full bg-bg-secondary relative">
+        {isImporting && (
+          <div className="absolute inset-0 z-50 bg-bg-secondary/80 backdrop-blur-sm flex flex-col items-center justify-center">
+            <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin mb-3"></div>
+            <div className="text-sm font-medium text-accent animate-pulse">Importing media...</div>
+          </div>
+        )}
 
         <div className="p-4 border-b border-border-primary flex justify-between items-center">
 
