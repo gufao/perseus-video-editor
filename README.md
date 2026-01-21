@@ -1,56 +1,63 @@
-# Perseus - Video Editor
+# Perseus Video Editor
 
-A simple, non-linear video editor built with Electron, React, and FFmpeg.
+**Perseus** is a lightweight, open-source desktop video editor built for speed and simplicity. Designed for quick cuts, trims, and exports without the bloat of professional NLEs.
+
+![Perseus Screenshot](https://raw.githubusercontent.com/gufao/perseus-video-editor/main/public/logo.png)
 
 ## Features
-- Import and preview videos
-- Timeline with drag-and-drop ordering
-- Split and Trim clips
-- Audio Waveform visualization
-- Export to MP4
 
-## Prerequisites
+- **🚀 Fast & Lightweight**: Starts instantly, runs smoothly on macOS, Windows, and Linux.
+- **✂️ Precision Cutting**: Frame-perfect splitting and trimming.
+- **🎞️ Visual Timeline**: Drag-and-drop timeline with waveform visualization.
+- **📦 Multi-Format Support**: Powered by FFmpeg to handle MP4, MOV, MKV, AVI, and more.
+- **⚡ Quick Export**: Optimized presets for fast rendering to MP4.
+- **🔒 Private & Offline**: No cloud uploads, no accounts, no subscriptions. Your media stays on your machine.
 
-### FFmpeg Binaries
-This project relies on FFmpeg binaries to process video and audio. These binaries are **not included** in the repository to keep the size manageable.
+## Download
 
-You must download the appropriate binaries for your platform and place them in the `resources` directory structure:
+Download the latest version for your platform from the [Releases Page](https://github.com/gufao/perseus-video-editor/releases/latest) or our [Website](https://perseus-landing.vercel.app).
 
-```
-resources/
-├── ffmpeg-linux/
-│   ├── ffmpeg
-│   └── ffprobe
-├── ffmpeg-mac/
-│   ├── ffmpeg
-│   └── ffprobe
-└── ffmpeg-win/
-    ├── ffmpeg.exe
-    └── ffprobe.exe
-```
-
-You can download static builds from [ffmpeg.org](https://ffmpeg.org/download.html).
-
-**Note for macOS:** You may need to remove the quarantine attribute from the downloaded binaries:
-```bash
-xattr -dr com.apple.quarantine resources/ffmpeg-mac/
-```
+- **macOS**: Universal binary (Intel & Apple Silicon)
+- **Windows**: x64 Installer
+- **Linux**: AppImage
 
 ## Development
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+### Prerequisites
 
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+- Node.js (v18+)
+- NPM
 
-## Build
+### Setup
 
-To build the application for your current platform:
 ```bash
-npm run build
+git clone https://github.com/gufao/perseus-video-editor.git
+cd perseus-video-editor
+npm install
 ```
+
+### Running Locally
+
+```bash
+npm run dev
+```
+
+### Building
+
+To create a production build for your current platform:
+
+```bash
+npm run dist
+```
+
+## Tech Stack
+
+- **Electron**: Desktop runtime
+- **React**: UI framework
+- **Vite**: Build tool
+- **Tailwind CSS**: Styling
+- **Fluent-FFmpeg**: Media processing core
+
+## License
+
+MIT © [Perseus Team](https://github.com/gufao)
