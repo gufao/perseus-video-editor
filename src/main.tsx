@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { ThemeProvider } from './components/ThemeProvider'
 import { LanguageProvider } from './components/LanguageProvider'
+import { bro } from './lib/analytics'
+
+bro.track('app_opened')
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

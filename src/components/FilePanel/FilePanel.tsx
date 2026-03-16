@@ -3,6 +3,7 @@ import { useProjectStore } from '../../stores/useProjectStore';
 import clsx from 'clsx';
 import { useLanguage } from '../LanguageProvider';
 import { api } from '../../lib/api';
+import { bro } from '../../lib/analytics';
 
 const FilePanel = () => {
   const { clips, addClip, setActiveClip, activeClipId } = useProjectStore();
@@ -56,6 +57,9 @@ const FilePanel = () => {
             thumbnail,
             waveform
           });
+
+          const ext = name.split('.').pop()?.toLowerCase() || 'unknown';
+          bro.track('video_imported', { format: ext, duration: Math.round(duration) });
         }
       }
     } catch (e) {

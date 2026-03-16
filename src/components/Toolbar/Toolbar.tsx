@@ -4,6 +4,7 @@ import { ThemeToggle } from '../ThemeToggle';
 import { useLanguage } from '../LanguageProvider';
 import { LanguageToggle } from '../LanguageToggle';
 import { api } from '../../lib/api';
+import { bro } from '../../lib/analytics';
 
 const Toolbar = () => {
   const { activeClipId, currentTime, removeClip, splitClip, clips, setNotification } = useProjectStore();
@@ -25,12 +26,14 @@ const Toolbar = () => {
   const handleSplit = () => {
     if (activeClipId) {
       splitClip(activeClipId, currentTime);
+      bro.track('clip_split');
     }
   };
 
   const handleDelete = () => {
     if (activeClipId) {
       removeClip(activeClipId);
+      bro.track('clip_deleted');
     }
   };
 
@@ -41,6 +44,7 @@ const Toolbar = () => {
       setExportProgress(0);
       try {
         await api.exportVideo(clipsToExport, outputPath);
+        bro.track('video_exported', { clips: clipsToExport.length });
         setNotification({ type: 'success', message: t('toolbar.exportSuccess') });
       } catch (error: any) {
         console.error('Export failed:', error);
