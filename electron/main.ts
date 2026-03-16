@@ -26,7 +26,7 @@ function createWindow() {
     },
   });
 
-  const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+  const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:7377';
 
   if (!app.isPackaged) {
     mainWindow.loadURL(devUrl);

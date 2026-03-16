@@ -1,33 +1,27 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
 import clsx from 'clsx';
+import { useLanguage } from '../LanguageProvider';
+import { api } from '../../lib/api';
 
 const FilePanel = () => {
   const { clips, addClip, setActiveClip, activeClipId } = useProjectStore();
   const [isImporting, setIsImporting] = useState(false);
+  const { t } = useLanguage();
 
   const handleImport = async () => {
-    console.log('Import clicked, checking API...', window.electronAPI);
-    if (!window.electronAPI) {
-      alert('Electron API not found!');
-      return;
-    }
-
     try {
-      const filePaths = await window.electronAPI.openFile();
-      console.log('File paths selected:', filePaths);
-      
+      const filePaths = await api.openFile();
+
       if (filePaths && filePaths.length > 0) {
         setIsImporting(true);
         for (const path of filePaths) {
-          console.log('Processing:', path);
           const name = path.split('/').pop() || 'Unknown';
-          let duration = 10; // Default
+          let duration = 10;
           let thumbnail = undefined;
 
           try {
-            const metadata = await window.electronAPI.getMetadata(path);
-            console.log('Metadata:', metadata);
+            const metadata = await api.getMetadata(path);
             if (metadata && metadata.duration) {
               duration = metadata.duration;
             }
@@ -36,7 +30,7 @@ const FilePanel = () => {
           }
 
           try {
-            const thumb = await window.electronAPI.getThumbnail(path);
+            const thumb = await api.getThumbnail(path);
             if (thumb) {
               thumbnail = thumb;
             }
@@ -46,14 +40,14 @@ const FilePanel = () => {
 
           let waveform = undefined;
           try {
-            const wave = await window.electronAPI.getWaveform(path);
+            const wave = await api.getWaveform(path);
             if (wave) {
               waveform = wave;
             }
           } catch (error) {
             console.warn('Failed to get waveform for', path, error);
           }
-  
+
           addClip({
             path,
             name,
@@ -66,7 +60,7 @@ const FilePanel = () => {
       }
     } catch (e) {
       console.error('Error during import:', e);
-      alert('Error during import: ' + e);
+      alert(t('filePanel.importError') + ': ' + e);
     } finally {
       setIsImporting(false);
     }
@@ -78,13 +72,13 @@ const FilePanel = () => {
         {isImporting && (
           <div className="absolute inset-0 z-50 bg-bg-secondary/80 backdrop-blur-sm flex flex-col items-center justify-center">
             <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin mb-3"></div>
-            <div className="text-sm font-medium text-accent animate-pulse">Importing media...</div>
+            <div className="text-sm font-medium text-accent animate-pulse">{t('filePanel.importing')}</div>
           </div>
         )}
 
         <div className="p-4 border-b border-border-primary flex justify-between items-center">
 
-          <h2 className="font-semibold text-sm uppercase tracking-wider text-text-secondary">Project Files</h2>
+          <h2 className="font-semibold text-sm uppercase tracking-wider text-text-secondary">{t('filePanel.title')}</h2>
 
           <button 
 
@@ -94,7 +88,7 @@ const FilePanel = () => {
 
           >
 
-            Import
+            {t('common.import')}
 
           </button>
 
@@ -108,7 +102,7 @@ const FilePanel = () => {
 
             <div className="text-center text-text-muted text-sm mt-10">
 
-              No files imported
+              {t('filePanel.noFiles')}
 
             </div>
 
@@ -142,7 +136,7 @@ const FilePanel = () => {
 
                     <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">
 
-                      No img
+                      {t('filePanel.noImg')}
 
                     </div>
 

@@ -1,19 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
+import { ThemeToggle } from '../ThemeToggle';
+import { useLanguage } from '../LanguageProvider';
+import { LanguageToggle } from '../LanguageToggle';
+import { api } from '../../lib/api';
 
 const Toolbar = () => {
   const { activeClipId, currentTime, removeClip, splitClip, clips, setNotification } = useProjectStore();
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const { t } = useLanguage();
 
   const activeClip = clips.find(c => c.id === activeClipId);
 
   useEffect(() => {
-    if (window.electronAPI && window.electronAPI.onExportProgress) {
-      window.electronAPI.onExportProgress((percent) => {
-        setExportProgress(percent);
-      });
-    }
+    const unlisten = api.onExportProgress((percent) => {
+      setExportProgress(percent);
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, []);
 
   const handleSplit = () => {
@@ -29,16 +35,17 @@ const Toolbar = () => {
   };
 
   const runExport = async (clipsToExport: any[]) => {
-    const outputPath = await window.electronAPI.saveFile();
+    const outputPath = await api.saveFile();
     if (outputPath) {
       setIsExporting(true);
       setExportProgress(0);
       try {
-        await window.electronAPI.exportVideo(clipsToExport, outputPath);
-        setNotification({ type: 'success', message: 'Export Complete Successfully!' });
-      } catch (error) {
-        console.error(error);
-        setNotification({ type: 'error', message: 'Export Failed. See console.' });
+        await api.exportVideo(clipsToExport, outputPath);
+        setNotification({ type: 'success', message: t('toolbar.exportSuccess') });
+      } catch (error: any) {
+        console.error('Export failed:', error);
+        const detail = typeof error === 'string' ? error : error?.message || 'Unknown error';
+        setNotification({ type: 'error', message: `${t('toolbar.exportError')}: ${detail}` });
       } finally {
         setIsExporting(false);
         setExportProgress(0);
@@ -63,7 +70,7 @@ const Toolbar = () => {
           onClick={handleSplit}
           disabled={!activeClipId || isExporting}
           className="text-text-muted hover:text-text-primary p-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
-          title="Split"
+          title={t('common.split')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path></svg>
         </button>
@@ -71,7 +78,7 @@ const Toolbar = () => {
           onClick={handleDelete}
           disabled={!activeClipId || isExporting}
           className="text-text-muted hover:text-red-500 p-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
-          title="Delete"
+          title={t('common.delete')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
         </button>
@@ -80,7 +87,7 @@ const Toolbar = () => {
       <div className="flex-1 flex justify-center">
          {isExporting && (
              <div className="flex items-center space-x-2 w-64">
-                <div className="text-xs text-accent font-medium whitespace-nowrap">Exporting... {Math.round(exportProgress)}%</div>
+                <div className="text-xs text-accent font-medium whitespace-nowrap">{t('toolbar.exporting')} {Math.round(exportProgress)}%</div>
                 <div className="h-2 bg-bg-elevated rounded-full flex-1 overflow-hidden border border-border-primary">
                   <div 
                     className="h-full bg-accent transition-all duration-300"
@@ -92,13 +99,17 @@ const Toolbar = () => {
       </div>
 
       <div className="flex items-center space-x-3">
+        <LanguageToggle />
+        <div className="w-px h-4 bg-border-primary"></div>
+        <ThemeToggle />
+        <div className="w-px h-4 bg-border-primary"></div>
         <button 
           onClick={handleExportClip}
           disabled={!activeClip || isExporting}
           className="text-text-muted hover:text-text-primary text-xs font-medium uppercase transition disabled:opacity-50" 
-          title="Export only the selected clip"
+          title={t('toolbar.exportClipTitle')}
         >
-          Export Clip
+          {t('toolbar.exportClip')}
         </button>
         
         <div className="w-px h-4 bg-border-primary"></div>
@@ -107,9 +118,9 @@ const Toolbar = () => {
           onClick={handleExportProject}
           disabled={clips.length === 0 || isExporting}
           className="bg-accent hover:bg-accent-hover text-bg-primary px-3 py-1 rounded text-xs font-bold transition disabled:opacity-50 disabled:bg-bg-elevated disabled:text-text-muted" 
-          title="Export entire timeline"
+          title={t('toolbar.exportProjectTitle')}
         >
-           Export Project
+           {t('toolbar.exportProject')}
         </button>
       </div>
     </div>

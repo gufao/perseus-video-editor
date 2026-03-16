@@ -1,5 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
+import { useLanguage } from '../LanguageProvider';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 const formatTime = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -14,6 +16,7 @@ const Preview = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isSeeking = useRef(false);
   const lastPathRef = useRef<string | null>(null);
+  const { t } = useLanguage();
   
   // Track the last time we pushed TO the store to avoid feedback loops
   const lastVideoTimeUpdate = useRef<number>(0);
@@ -116,7 +119,7 @@ const Preview = () => {
     if (videoRef.current && activeClip) {
       // Only reload if path changed
       if (activeClip.path !== lastPathRef.current) {
-        videoRef.current.src = `file://${activeClip.path}`;
+        videoRef.current.src = convertFileSrc(activeClip.path);
         videoRef.current.load();
         lastPathRef.current = activeClip.path;
       }
@@ -139,8 +142,8 @@ const Preview = () => {
   if (!activeClip) {
     return (
       <div className="text-text-secondary flex flex-col items-center justify-center h-full">
-        <div className="mb-2">No clip selected</div>
-        <div className="text-xs text-text-muted">Select a clip from the Project Files or Timeline</div>
+        <div className="mb-2">{t('preview.noClipSelected')}</div>
+        <div className="text-xs text-text-muted">{t('preview.selectClipHint')}</div>
       </div>
     );
   }
@@ -151,7 +154,7 @@ const Preview = () => {
       <div className="flex-1 flex items-center justify-center bg-bg-primary relative overflow-hidden">
         <video
           ref={videoRef}
-          src={`file://${activeClip.path}`}
+          src={convertFileSrc(activeClip.path)}
           className="max-h-full max-w-full shadow-2xl"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}

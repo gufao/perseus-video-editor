@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "Perseus",
+  "version": "2.0.0",
+  "identifier": "com.perseus.videoeditor",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:7377",
+    "beforeDevCommand": "npm run dev:react",
+    "beforeBuildCommand": "npm run build:frontend"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Perseus",
+        "width": 1200,
+        "height": 800
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["**"],
+          "deny": []
+        }
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": {
+      "../resources/ffmpeg-mac/*": "resources/ffmpeg-mac/",
+      "../resources/ffmpeg-win/*": "resources/ffmpeg-win/",
+      "../resources/ffmpeg-linux/*": "resources/ffmpeg-linux/"
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

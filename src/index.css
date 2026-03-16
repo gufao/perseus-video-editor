@@ -1,25 +1,65 @@
 @import "tailwindcss";
 
+:root {
+  /* Dark Theme (Default) */
+  --bg-primary: #050505;
+  --bg-secondary: #0d0d0d;
+  --bg-elevated: #161616;
+  --bg-surface: #1a1a1a;
+  
+  --text-primary: #fafafa;
+  --text-secondary: #a3a3a3;
+  --text-muted: #525252;
+  
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --accent-dim: rgba(245, 158, 11, 0.4);
+  --accent-glow: rgba(245, 158, 11, 0.15);
+  
+  --border-primary: rgba(255, 255, 255, 0.06);
+  --border-accent: rgba(245, 158, 11, 0.3);
+}
+
+.light {
+  /* Light Theme */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-elevated: #e4e4e7;
+  --bg-surface: #ffffff;
+  
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
+  
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-dim: rgba(217, 119, 6, 0.4);
+  --accent-glow: rgba(217, 119, 6, 0.15);
+  
+  --border-primary: rgba(0, 0, 0, 0.1);
+  --border-accent: rgba(217, 119, 6, 0.3);
+}
+
 @theme {
-  --color-bg-primary: #050505;
-  --color-bg-secondary: #0d0d0d;
-  --color-bg-elevated: #161616;
-  --color-bg-surface: #1a1a1a;
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-surface: var(--bg-surface);
   
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a3a3a3;
-  --color-text-muted: #525252;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
   
-  --color-accent: #f59e0b;
-  --color-accent-hover: #fbbf24;
-  --color-accent-dim: rgba(245, 158, 11, 0.4);
-  --color-accent-glow: rgba(245, 158, 11, 0.15);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-glow: var(--accent-glow);
   
-  --color-border-primary: rgba(255, 255, 255, 0.06);
-  --color-border-accent: rgba(245, 158, 11, 0.3);
+  --color-border-primary: var(--border-primary);
+  --color-border-accent: var(--border-accent);
 }
 
 :root {
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }

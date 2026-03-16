@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
 import clsx from 'clsx';
+import { useLanguage } from '../LanguageProvider';
 
 const Timeline = () => {
   const { clips, activeClipId, setActiveClip, currentTime, reorderClips, updateClip } = useProjectStore();
   const [pixelsPerSecond, setPixelsPerSecond] = useState(10);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const { t } = useLanguage();
   
   // Trimming state
   const [trimming, setTrimming] = useState<{ id: string; type: 'start' | 'end'; initialX: number; initialValue: number } | null>(null);
@@ -59,9 +61,9 @@ const Timeline = () => {
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-secondary">
       {/* Timeline Toolbar (Zoom) */}
       <div className="h-8 border-b border-border-primary flex items-center justify-between px-4 bg-bg-elevated/50 backdrop-blur-sm">
-        <div className="text-[10px] uppercase tracking-wider text-text-secondary font-bold">Timeline</div>
+        <div className="text-[10px] uppercase tracking-wider text-text-secondary font-bold">{t('timeline.title')}</div>
         <div className="flex items-center space-x-3">
-          <span className="text-[10px] text-text-secondary">Zoom</span>
+          <span className="text-[10px] text-text-secondary">{t('timeline.zoom')}</span>
           <input 
             type="range" 
             min="1" 
@@ -138,7 +140,7 @@ const Timeline = () => {
              );
            })}
            {clips.length === 0 && (
-             <div className="text-text-muted text-sm ml-4 italic">Import videos to start editing</div>
+             <div className="text-text-muted text-sm ml-4 italic">{t('timeline.emptyState')}</div>
            )}
         </div>
       </div>
