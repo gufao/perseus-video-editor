@@ -5,10 +5,10 @@ export interface Clip {
   id: string;
   path: string;
   name: string;
-  duration: number; // Current duration (end - start)
-  sourceDuration: number; // Total file duration
-  start: number; // Start time in source file
-  end: number; // End time in source file
+  duration: number;
+  sourceDuration: number;
+  start: number;
+  end: number;
   thumbnail?: string;
   waveform?: string;
 }
@@ -24,10 +24,8 @@ interface ProjectState {
   currentTime: number;
   isPlaying: boolean;
   notification: Notification | null;
-  isPreviewMode: boolean;
   globalCurrentTime: number;
   totalDuration: number;
-  activePreviewClipIndex: number | null;
   addClip: (clip: Omit<Clip, 'id' | 'duration' | 'start' | 'end'> & { duration: number }) => void;
   removeClip: (id: string) => void;
   setActiveClip: (id: string | null) => void;
@@ -37,7 +35,6 @@ interface ProjectState {
   splitClip: (id: string, time: number) => void;
   reorderClips: (startIndex: number, endIndex: number) => void;
   updateClip: (id: string, updates: Partial<Clip>) => void;
-  setIsPreviewMode: (enabled: boolean) => void;
   setGlobalCurrentTime: (time: number) => void;
   getClipAtGlobalTime: (globalTime: number) => { clip: Clip; index: number; localTime: number } | null;
   getClipPosition: (index: number) => { start: number; end: number } | null;
@@ -63,47 +60,84 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   currentTime: 0,
   isPlaying: false,
   notification: null,
-  isPreviewMode: false,
   globalCurrentTime: 0,
   totalDuration: 0,
-  activePreviewClipIndex: null,
   addClip: (clip) =>
     set((state) => {
-      const newClips = [...state.clips, { 
+      const newClip = { 
         ...clip, 
         id: uuidv4(),
         sourceDuration: clip.duration,
         start: 0,
         end: clip.duration
-      }];
+      };
+      
+      const newClips = [...state.clips, newClip];
+      const isFirstClip = state.clips.length === 0;
+      
       return {
         clips: newClips,
-        totalDuration: calculateTotalDuration(newClips)
+        totalDuration: calculateTotalDuration(newClips),
+        activeClipId: isFirstClip ? newClip.id : state.activeClipId,
+        currentTime: isFirstClip ? 0 : state.currentTime,
+        globalCurrentTime: isFirstClip ? 0 : state.globalCurrentTime
       };
     }),
   removeClip: (id) =>
     set((state) => {
       const newClips = state.clips.filter((c) => c.id !== id);
+      const isRemovingActiveClip = state.activeClipId === id;
+      let newActiveClipId = isRemovingActiveClip ? null : state.activeClipId;
+      
+      if (isRemovingActiveClip && newClips.length > 0) {
+        const removedIndex = state.clips.findIndex(c => c.id === id);
+        if (removedIndex > 0) {
+          newActiveClipId = newClips[Math.min(removedIndex - 1, newClips.length - 1)].id;
+        } else if (newClips.length > 0) {
+          newActiveClipId = newClips[0].id;
+        }
+      }
+      
+      const newTotalDuration = calculateTotalDuration(newClips);
+      const newGlobalCurrentTime = Math.min(state.globalCurrentTime, Math.max(0, newTotalDuration - 0.001));
+      
       return {
         clips: newClips,
-        activeClipId: state.activeClipId === id ? null : state.activeClipId,
-        totalDuration: calculateTotalDuration(newClips),
-        globalCurrentTime: state.isPreviewMode ? Math.min(state.globalCurrentTime, calculateTotalDuration(newClips)) : state.globalCurrentTime
+        activeClipId: newActiveClipId,
+        totalDuration: newTotalDuration,
+        globalCurrentTime: newGlobalCurrentTime
       };
     }),
   setActiveClip: (id) => set({ activeClipId: id, currentTime: 0, isPlaying: false }),
   setCurrentTime: (time) => set({ currentTime: time }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setNotification: (notification) => set({ notification }),
-  reorderClips: (startIndex, endIndex) => set((state) => {
-    const newClips = Array.from(state.clips);
-    const [removed] = newClips.splice(startIndex, 1);
-    newClips.splice(endIndex, 0, removed);
-    return { 
-      clips: newClips,
-      totalDuration: calculateTotalDuration(newClips)
-    };
-  }),
+  reorderClips: (startIndex, endIndex) => {
+    console.log('=== reorderClips ===');
+    console.log('startIndex:', startIndex, 'endIndex:', endIndex);
+    
+    set((state) => {
+      if (startIndex === endIndex) return state;
+      
+      const newClips = Array.from(state.clips);
+      console.log('Before:', newClips.map((c, i) => `${i}:${c.name}`).join(', '));
+      
+      const [removed] = newClips.splice(startIndex, 1);
+      
+      let insertIndex = endIndex;
+      
+      console.log('Inserting at index:', insertIndex);
+      
+      newClips.splice(insertIndex, 0, removed);
+      
+      console.log('After:', newClips.map((c, i) => `${i}:${c.name}`).join(', '));
+      
+      return { 
+        clips: newClips,
+        totalDuration: calculateTotalDuration(newClips)
+      };
+    });
+  },
   updateClip: (id, updates) => set((state) => {
     const newClips = state.clips.map((clip) => {
       if (clip.id === id) {
@@ -162,12 +196,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       totalDuration: calculateTotalDuration(newClips)
     };
   }),
-  setIsPreviewMode: (enabled) => set({ 
-    isPreviewMode: enabled,
-    globalCurrentTime: enabled ? 0 : get().globalCurrentTime,
-    isPlaying: false,
-    activePreviewClipIndex: null
-  }),
   setGlobalCurrentTime: (time) => set({ globalCurrentTime: time }),
   getClipAtGlobalTime: (globalTime: number) => {
     const state = get();
@@ -180,6 +208,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           localTime: globalTime - positions[i].start
         };
       }
+    }
+    if (state.clips.length > 0 && Math.abs(globalTime - positions[state.clips.length - 1].end) < 0.1) {
+      return {
+        clip: state.clips[state.clips.length - 1],
+        index: state.clips.length - 1,
+        localTime: state.clips[state.clips.length - 1].duration
+      };
     }
     return null;
   },
