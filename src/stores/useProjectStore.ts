@@ -119,7 +119,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       clips: newClips,
       totalDuration: calculateTotalDuration(newClips)
     };
-  })),
+  }),
   splitClip: (id, time) => set((state) => {
     const clipIndex = state.clips.findIndex(c => c.id === id);
     if (clipIndex === -1) {
