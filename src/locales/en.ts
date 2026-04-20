@@ -20,10 +20,15 @@ export const en = {
     title: 'Timeline',
     zoom: 'Zoom',
     emptyState: 'Import videos to start editing',
+    previewMode: 'Preview All',
+    previewModeActive: 'Preview Mode',
+    totalDuration: 'Total',
+    playing: 'Playing',
   },
   preview: {
     noClipSelected: 'No clip selected',
     selectClipHint: 'Select a clip from the Project Files or Timeline',
+    previewingProject: 'Previewing',
   },
   toolbar: {
     exporting: 'Exporting...',

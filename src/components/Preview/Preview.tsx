@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useProjectStore } from '../../stores/useProjectStore';
 import { useLanguage } from '../LanguageProvider';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -11,17 +11,65 @@ const formatTime = (seconds: number) => {
 };
 
 const Preview = () => {
-  const { activeClipId, clips, isPlaying, setIsPlaying, currentTime, setCurrentTime } = useProjectStore();
+  const { 
+    activeClipId, 
+    clips, 
+    isPlaying, 
+    setIsPlaying, 
+    currentTime, 
+    setCurrentTime,
+    isPreviewMode,
+    globalCurrentTime,
+    setGlobalCurrentTime,
+    totalDuration,
+    getClipAtGlobalTime,
+    getClipPosition
+  } = useProjectStore();
+  
   const activeClip = clips.find((c) => c.id === activeClipId);
   const videoRef = useRef<HTMLVideoElement>(null);
   const isSeeking = useRef(false);
   const lastPathRef = useRef<string | null>(null);
   const { t } = useLanguage();
   
-  // Track the last time we pushed TO the store to avoid feedback loops
   const lastVideoTimeUpdate = useRef<number>(0);
+  const isClipSwitching = useRef(false);
+  const [currentPreviewClipIndex, setCurrentPreviewClipIndex] = useState<number>(0);
 
-  // Sync Play/Pause
+  const getCurrentPreviewClip = useCallback(() => {
+    if (!isPreviewMode || clips.length === 0) return null;
+    const clipInfo = getClipAtGlobalTime(globalCurrentTime);
+    return clipInfo;
+  }, [isPreviewMode, globalCurrentTime, clips, getClipAtGlobalTime]);
+
+  const switchToClip = useCallback((index: number, seekToStart: boolean = true) => {
+    if (index < 0 || index >= clips.length) return;
+    
+    const clip = clips[index];
+    const position = getClipPosition(index);
+    
+    if (!position || !videoRef.current) return;
+    
+    isClipSwitching.current = true;
+    setCurrentPreviewClipIndex(index);
+    
+    if (clip.path !== lastPathRef.current) {
+      videoRef.current.src = convertFileSrc(clip.path);
+      videoRef.current.load();
+      lastPathRef.current = clip.path;
+    }
+    
+    if (seekToStart) {
+      videoRef.current.currentTime = clip.start;
+      setGlobalCurrentTime(position.start);
+      lastVideoTimeUpdate.current = position.start;
+    }
+    
+    setTimeout(() => {
+      isClipSwitching.current = false;
+    }, 100);
+  }, [clips, getClipPosition, setGlobalCurrentTime]);
+
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -32,27 +80,41 @@ const Preview = () => {
     }
   }, [isPlaying]);
 
-  // Sync Seek (Store -> Video)
   useEffect(() => {
-    if (videoRef.current && activeClip && !isSeeking.current) {
-      // If the update came from the video (detected by matching last pushed time), ignore it
-      if (Math.abs(currentTime - lastVideoTimeUpdate.current) < 0.1) {
-        return;
-      }
-
-      const targetTime = activeClip.start + currentTime;
-      // Only seek if we are actually out of sync
-      if (Math.abs(videoRef.current.currentTime - targetTime) > 0.2) {
-        videoRef.current.currentTime = targetTime;
-      }
+    if (!isPreviewMode || !videoRef.current) return;
+    
+    const clipInfo = getCurrentPreviewClip();
+    if (!clipInfo) return;
+    
+    if (Math.abs(globalCurrentTime - lastVideoTimeUpdate.current) < 0.1) {
+      return;
     }
-  }, [currentTime, activeClip]);
+
+    const { clip, index, localTime } = clipInfo;
+    
+    if (clip.path !== lastPathRef.current) {
+      videoRef.current.src = convertFileSrc(clip.path);
+      videoRef.current.load();
+      lastPathRef.current = clip.path;
+      setCurrentPreviewClipIndex(index);
+    }
+    
+    const targetTime = clip.start + localTime;
+    if (Math.abs(videoRef.current.currentTime - targetTime) > 0.2) {
+      videoRef.current.currentTime = targetTime;
+    }
+  }, [globalCurrentTime, isPreviewMode, getCurrentPreviewClip]);
 
   const handleTimeUpdate = () => {
-    if (videoRef.current && activeClip && !isSeeking.current) {
+    if (!videoRef.current) return;
+    
+    if (isClipSwitching.current) return;
+
+    if (!isPreviewMode) {
+      if (!activeClip || isSeeking.current) return;
+      
       const videoTime = videoRef.current.currentTime;
       
-      // Enforce bounds
       if (videoTime < activeClip.start) {
          videoRef.current.currentTime = activeClip.start;
          return;
@@ -60,42 +122,81 @@ const Preview = () => {
 
       if (videoTime >= activeClip.end) {
         setIsPlaying(false);
-        videoRef.current.currentTime = activeClip.start; // Loop back to start of clip
+        videoRef.current.currentTime = activeClip.start;
         setCurrentTime(0);
         lastVideoTimeUpdate.current = 0;
         return;
       }
 
-      // Update store with relative time
       const relativeTime = videoTime - activeClip.start;
       
-      // Only update if changed significantly to reduce React overhead
       if (Math.abs(currentTime - relativeTime) > 0.05) {
         lastVideoTimeUpdate.current = relativeTime;
         setCurrentTime(relativeTime);
       }
+    } else {
+      const clipInfo = getCurrentPreviewClip();
+      if (!clipInfo) {
+        setIsPlaying(false);
+        return;
+      }
+
+      const { clip, index } = clipInfo;
+      const videoTime = videoRef.current.currentTime;
+      
+      if (videoTime < clip.start) {
+        videoRef.current.currentTime = clip.start;
+        return;
+      }
+
+      if (videoTime >= clip.end) {
+        const nextIndex = index + 1;
+        if (nextIndex < clips.length) {
+          switchToClip(nextIndex, true);
+        } else {
+          setIsPlaying(false);
+          setGlobalCurrentTime(0);
+          lastVideoTimeUpdate.current = 0;
+          switchToClip(0, true);
+        }
+        return;
+      }
+
+      const position = getClipPosition(index);
+      if (position) {
+        const localTime = videoTime - clip.start;
+        const newGlobalTime = position.start + localTime;
+        
+        if (Math.abs(globalCurrentTime - newGlobalTime) > 0.05) {
+          lastVideoTimeUpdate.current = newGlobalTime;
+          setGlobalCurrentTime(newGlobalTime);
+        }
+      }
     }
   };
 
-  // UI Handlers for Custom Controls
   const togglePlay = () => {
+    if (isPreviewMode && clips.length === 0) return;
+    if (!isPreviewMode && !activeClip) return;
     setIsPlaying(!isPlaying);
   };
 
   const handleLoadedMetadata = () => {
-    if (videoRef.current && activeClip) {
-       // Optional: Force a seek to start time if needed, though useEffect handles this
-    }
+    // Optional: Force a seek to start time if needed
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
-    setCurrentTime(newTime);
     
-    // Update video in real-time while dragging
-    if (videoRef.current && activeClip) {
+    if (!isPreviewMode) {
+      setCurrentTime(newTime);
+      if (videoRef.current && activeClip) {
         videoRef.current.currentTime = activeClip.start + newTime;
         lastVideoTimeUpdate.current = newTime;
+      }
+    } else {
+      setGlobalCurrentTime(newTime);
+      lastVideoTimeUpdate.current = newTime;
     }
   };
 
@@ -105,70 +206,125 @@ const Preview = () => {
 
   const handleSeekEnd = () => {
     isSeeking.current = false;
-    // Force sync video to new store time immediately
-    if (videoRef.current && activeClip) {
-        const targetTime = activeClip.start + currentTime;
-        videoRef.current.currentTime = targetTime;
-        lastVideoTimeUpdate.current = currentTime; // Prevent loop
+    if (!isPreviewMode && videoRef.current && activeClip) {
+      const targetTime = activeClip.start + currentTime;
+      videoRef.current.currentTime = targetTime;
+      lastVideoTimeUpdate.current = currentTime;
+    } else if (isPreviewMode) {
+      const clipInfo = getClipAtGlobalTime(globalCurrentTime);
+      if (clipInfo && videoRef.current) {
+        videoRef.current.currentTime = clipInfo.clip.start + clipInfo.localTime;
+        lastVideoTimeUpdate.current = globalCurrentTime;
+      }
     }
   };
 
-
-  // Handle active clip changes
   useEffect(() => {
-    if (videoRef.current && activeClip) {
-      // Only reload if path changed
-      if (activeClip.path !== lastPathRef.current) {
-        videoRef.current.src = convertFileSrc(activeClip.path);
-        videoRef.current.load();
-        lastPathRef.current = activeClip.path;
-      }
-      
-      // Always reset state for new clip
-      setIsPlaying(false);
-      lastVideoTimeUpdate.current = 0;
-      
-      // Set initial position
-      requestAnimationFrame(() => {
-        if(videoRef.current) {
-            videoRef.current.currentTime = activeClip.start;
+    if (!isPreviewMode) {
+      if (videoRef.current && activeClip) {
+        if (activeClip.path !== lastPathRef.current) {
+          videoRef.current.src = convertFileSrc(activeClip.path);
+          videoRef.current.load();
+          lastPathRef.current = activeClip.path;
         }
-      });
-      
-      setCurrentTime(0);
+        
+        setIsPlaying(false);
+        lastVideoTimeUpdate.current = 0;
+        
+        requestAnimationFrame(() => {
+          if(videoRef.current) {
+            videoRef.current.currentTime = activeClip.start;
+          }
+        });
+        
+        setCurrentTime(0);
+      }
+    } else {
+      if (clips.length > 0) {
+        switchToClip(0, true);
+      }
     }
-  }, [activeClip?.id, activeClip?.path, activeClip?.start, setIsPlaying, setCurrentTime]);
+  }, [activeClip?.id, isPreviewMode, clips.length]);
 
-  if (!activeClip) {
+  const getCurrentDisplayClip = () => {
+    if (isPreviewMode) {
+      const clipInfo = getCurrentPreviewClip();
+      return clipInfo?.clip || null;
+    }
+    return activeClip;
+  };
+
+  const getCurrentDisplayTime = () => {
+    if (isPreviewMode) return globalCurrentTime;
+    return currentTime;
+  };
+
+  const getCurrentDuration = () => {
+    if (isPreviewMode) return totalDuration;
+    return activeClip?.duration || 0;
+  };
+
+  const displayClip = getCurrentDisplayClip();
+  const displayTime = getCurrentDisplayTime();
+  const displayDuration = getCurrentDuration();
+
+  if (!displayClip) {
     return (
-      <div className="text-text-secondary flex flex-col items-center justify-center h-full">
-        <div className="mb-2">{t('preview.noClipSelected')}</div>
-        <div className="text-xs text-text-muted">{t('preview.selectClipHint')}</div>
+      <div className="w-full h-full flex flex-col bg-bg-primary relative">
+        <div className="flex-1 flex items-center justify-center bg-bg-primary relative overflow-hidden">
+          <div className="text-text-secondary flex flex-col items-center justify-center h-full">
+            <div className="mb-2">{t('preview.noClipSelected')}</div>
+            <div className="text-xs text-text-muted">{t('preview.selectClipHint')}</div>
+          </div>
+        </div>
+        <div className="h-12 bg-bg-elevated border-t border-border-primary flex items-center px-4 space-x-4">
+          <button 
+            onClick={togglePlay}
+            disabled={true}
+            className="text-text-primary hover:text-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+          </button>
+          <div className="text-xs font-mono text-text-secondary w-20 text-center">0:00.0</div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value="0"
+            disabled={true}
+            className="flex-1 h-1 bg-bg-surface rounded-lg appearance-none cursor-pointer accent-accent hover:accent-accent-hover"
+          />
+          <div className="text-xs font-mono text-text-muted w-20 text-center">0:00.0</div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="w-full h-full flex flex-col bg-bg-primary relative group">
-      {/* Video Area */}
       <div className="flex-1 flex items-center justify-center bg-bg-primary relative overflow-hidden">
         <video
           ref={videoRef}
-          src={convertFileSrc(activeClip.path)}
+          src={convertFileSrc(displayClip.path)}
           className="max-h-full max-w-full shadow-2xl"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={() => setIsPlaying(false)}
           onClick={togglePlay}
-          onError={(e) => console.error('Video Error:', e, activeClip.path)}
+          onError={(e) => console.error('Video Error:', e, displayClip.path)}
         />
+        
+        {isPreviewMode && clips.length > 1 && (
+          <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded px-2 py-1 text-xs text-white">
+            {t('preview.previewingProject')} {currentPreviewClipIndex + 1}/{clips.length}: {displayClip.name}
+          </div>
+        )}
       </div>
 
-      {/* Transport Controls */}
       <div className="h-12 bg-bg-elevated border-t border-border-primary flex items-center px-4 space-x-4">
         <button 
           onClick={togglePlay}
-          disabled={!activeClip}
+          disabled={!displayClip}
           className="text-text-primary hover:text-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isPlaying ? (
@@ -179,25 +335,24 @@ const Preview = () => {
         </button>
 
         <div className="text-xs font-mono text-text-secondary w-20 text-center">
-            {formatTime(currentTime)}
+            {formatTime(displayTime)}
         </div>
 
-        {/* Scrubber (Simple) */}
         <input
           type="range"
           min="0"
-          max={activeClip ? activeClip.duration : 100}
+          max={displayDuration || 100}
           step="0.01"
-          value={currentTime}
+          value={displayTime}
           onChange={handleSeek}
           onMouseDown={handleSeekStart}
           onMouseUp={handleSeekEnd}
-          disabled={!activeClip}
+          disabled={!displayClip}
           className="flex-1 h-1 bg-bg-surface rounded-lg appearance-none cursor-pointer accent-accent hover:accent-accent-hover"
         />
         
         <div className="text-xs font-mono text-text-muted w-20 text-center">
-            {activeClip ? formatTime(activeClip.duration) : "00:00.0"}
+            {formatTime(displayDuration)}
         </div>
       </div>
     </div>

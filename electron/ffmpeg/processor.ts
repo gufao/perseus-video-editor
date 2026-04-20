@@ -118,35 +118,151 @@ export const generateWaveform = (filePath: string): Promise<string> => {
   });
 };
 
-export const exportVideo = (clips: any[], eventSender: Electron.WebContents, outputPath: string) => {
+interface ClipMetadata {
+  width: number;
+  height: number;
+  fps: number;
+  hasAudio: boolean;
+  audioSampleRate: number;
+  audioChannels: number;
+}
+
+const getClipMetadata = (filePath: string): Promise<ClipMetadata> => {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err: any, metadata: any) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      const videoStream = metadata.streams.find((s: any) => s.codec_type === 'video');
+      const audioStream = metadata.streams.find((s: any) => s.codec_type === 'audio');
+
+      let fps = 30;
+      if (videoStream && videoStream.r_frame_rate) {
+        const fpsMatch = videoStream.r_frame_rate.match(/(\d+)\/(\d+)/);
+        if (fpsMatch) {
+          fps = parseInt(fpsMatch[1]) / parseInt(fpsMatch[2]);
+        }
+      }
+
+      resolve({
+        width: videoStream?.width || 1920,
+        height: videoStream?.height || 1080,
+        fps: fps,
+        hasAudio: !!audioStream,
+        audioSampleRate: audioStream?.sample_rate ? parseInt(audioStream.sample_rate) : 44100,
+        audioChannels: audioStream?.channels || 2
+      });
+    });
+  });
+};
+
+export const exportVideo = async (clips: any[], eventSender: Electron.WebContents, outputPath: string) => {
+  if (clips.length === 0) {
+    throw new Error('No clips to export');
+  }
+
+  const allMetadata: ClipMetadata[] = [];
+  for (const clip of clips) {
+    try {
+      const meta = await getClipMetadata(clip.path);
+      allMetadata.push(meta);
+    } catch (err) {
+      console.warn('Failed to get metadata for', clip.path, err);
+      allMetadata.push({
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasAudio: true,
+        audioSampleRate: 44100,
+        audioChannels: 2
+      });
+    }
+  }
+
+  const targetWidth = Math.max(...allMetadata.map(m => m.width));
+  const targetHeight = Math.max(...allMetadata.map(m => m.height));
+  const targetFps = Math.min(...allMetadata.map(m => m.fps));
+  const targetSampleRate = 48000;
+  const targetChannels = 2;
+
   return new Promise((resolve, reject) => {
     const command = ffmpeg();
 
-    // Add inputs
     clips.forEach((clip) => {
       command.input(clip.path);
     });
 
-    // Build complex filter
     const filterComplex: string[] = [];
     const outputs: string[] = [];
 
     clips.forEach((clip, index) => {
-      // Trim video
-      filterComplex.push(`[${index}:v]trim=start=${clip.start}:end=${clip.end},setpts=PTS-STARTPTS[v${index}]`);
-      // Trim audio (assuming audio exists, if not this might fail, but for MVP assuming yes)
-      // We should check hasAudio but let's assume yes for standard video files
-      filterComplex.push(`[${index}:a]atrim=start=${clip.start}:end=${clip.end},asetpts=PTS-STARTPTS[a${index}]`);
+      const meta = allMetadata[index];
+      const videoLabel = `v_trim_${index}`;
+      const audioLabel = `a_trim_${index}`;
       
-      outputs.push(`[v${index}][a${index}]`);
+      filterComplex.push(`[${index}:v]trim=start=${clip.start}:end=${clip.end},setpts=PTS-STARTPTS[${videoLabel}]`);
+      
+      let currentVideoLabel = videoLabel;
+      
+      if (meta.width !== targetWidth || meta.height !== targetHeight) {
+        const scaleLabel = `v_scale_${index}`;
+        filterComplex.push(`[${currentVideoLabel}]scale=width=${targetWidth}:height=${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black[${scaleLabel}]`);
+        currentVideoLabel = scaleLabel;
+      }
+      
+      if (Math.abs(meta.fps - targetFps) > 0.1) {
+        const fpsLabel = `v_fps_${index}`;
+        filterComplex.push(`[${currentVideoLabel}]fps=fps=${targetFps}[${fpsLabel}]`);
+        currentVideoLabel = fpsLabel;
+      }
+      
+      const finalVideoLabel = `v_final_${index}`;
+      filterComplex.push(`[${currentVideoLabel}]format=yuv420p[${finalVideoLabel}]`);
+
+      if (meta.hasAudio) {
+        filterComplex.push(`[${index}:a]atrim=start=${clip.start}:end=${clip.end},asetpts=PTS-STARTPTS[${audioLabel}]`);
+        
+        let currentAudioLabel = audioLabel;
+        
+        if (meta.audioSampleRate !== targetSampleRate) {
+          const arLabel = `a_ar_${index}`;
+          filterComplex.push(`[${currentAudioLabel}]aformat=sample_fmts=fltp:sample_rates=${targetSampleRate}:channel_layouts=stereo[${arLabel}]`);
+          currentAudioLabel = arLabel;
+        } else if (meta.audioChannels !== targetChannels) {
+          const acLabel = `a_ac_${index}`;
+          filterComplex.push(`[${currentAudioLabel}]aformat=channel_layouts=stereo[${acLabel}]`);
+          currentAudioLabel = acLabel;
+        }
+        
+        const finalAudioLabel = `a_final_${index}`;
+        filterComplex.push(`[${currentAudioLabel}]aresample=${targetSampleRate}[${finalAudioLabel}]`);
+        
+        outputs.push(`[${finalVideoLabel}][${finalAudioLabel}]`);
+      } else {
+        const silentLabel = `a_silent_${index}`;
+        const duration = clip.end - clip.start;
+        filterComplex.push(`anullsrc=r=${targetSampleRate}:cl=stereo:duration=${duration}[${silentLabel}]`);
+        outputs.push(`[${finalVideoLabel}][${silentLabel}]`);
+      }
     });
 
-    // Concat
     filterComplex.push(`${outputs.join('')}concat=n=${clips.length}:v=1:a=1[outv][outa]`);
 
     command
       .complexFilter(filterComplex)
-      .outputOptions(['-map [outv]', '-map [outa]'])
+      .outputOptions([
+        '-map [outv]',
+        '-map [outa]',
+        '-c:v libx264',
+        '-preset medium',
+        '-crf 23',
+        '-c:a aac',
+        '-b:a 192k',
+        '-movflags +faststart',
+        '-pix_fmt yuv420p'
+      ])
       .output(outputPath)
       .on('progress', (progress) => {
         if (eventSender) {
@@ -154,7 +270,10 @@ export const exportVideo = (clips: any[], eventSender: Electron.WebContents, out
         }
       })
       .on('end', () => resolve(true))
-      .on('error', (err: Error) => reject(err))
+      .on('error', (err: Error) => {
+        console.error('Export error:', err);
+        reject(err);
+      })
       .run();
   });
 };

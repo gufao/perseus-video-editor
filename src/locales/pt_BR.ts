@@ -22,10 +22,15 @@ export const pt_BR: TranslationType = {
     title: 'Linha do Tempo',
     zoom: 'Zoom',
     emptyState: 'Importe vídeos para começar a editar',
+    previewMode: 'Visualizar Todos',
+    previewModeActive: 'Modo Visualização',
+    totalDuration: 'Total',
+    playing: 'Reproduzindo',
   },
   preview: {
     noClipSelected: 'Nenhum clipe selecionado',
     selectClipHint: 'Selecione um clipe nos Arquivos do Projeto ou na Linha do Tempo',
+    previewingProject: 'Visualizando',
   },
   toolbar: {
     exporting: 'Exportando...',
