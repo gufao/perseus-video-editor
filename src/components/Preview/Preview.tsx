@@ -34,13 +34,22 @@ const Preview = () => {
   
   const lastVideoTimeUpdate = useRef<number>(0);
   const isClipSwitching = useRef(false);
+  const pendingPlay = useRef(false);
   const [currentPreviewClipIndex, setCurrentPreviewClipIndex] = useState<number>(0);
 
   const getCurrentPreviewClip = useCallback(() => {
     if (!isPreviewMode || clips.length === 0) return null;
-    const clipInfo = getClipAtGlobalTime(globalCurrentTime);
-    return clipInfo;
-  }, [isPreviewMode, globalCurrentTime, clips, getClipAtGlobalTime]);
+    return getClipAtGlobalTime(globalCurrentTime);
+  }, [isPreviewMode, globalCurrentTime, getClipAtGlobalTime]);
+
+  const playVideo = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch((err) => {
+        console.warn('Play failed, will retry:', err);
+        pendingPlay.current = true;
+      });
+    }
+  }, []);
 
   const switchToClip = useCallback((index: number, seekToStart: boolean = true) => {
     if (index < 0 || index >= clips.length) return;
@@ -50,35 +59,64 @@ const Preview = () => {
     
     if (!position || !videoRef.current) return;
     
+    console.log('Switching to clip:', index, clip.name);
+    
     isClipSwitching.current = true;
     setCurrentPreviewClipIndex(index);
     
-    if (clip.path !== lastPathRef.current) {
+    const needReload = clip.path !== lastPathRef.current;
+    
+    if (needReload) {
+      console.log('Loading new video source:', clip.path);
       videoRef.current.src = convertFileSrc(clip.path);
       videoRef.current.load();
       lastPathRef.current = clip.path;
     }
     
+    const targetTime = clip.start + (seekToStart ? 0 : (globalCurrentTime - position.start));
+    
+    console.log('Seeking to:', targetTime, 'clip.start:', clip.start);
+    
     if (seekToStart) {
-      videoRef.current.currentTime = clip.start;
       setGlobalCurrentTime(position.start);
       lastVideoTimeUpdate.current = position.start;
     }
     
+    if (needReload) {
+      pendingPlay.current = isPlaying;
+      const handler = () => {
+        if (videoRef.current) {
+          console.log('Video loaded, seeking to:', targetTime);
+          videoRef.current.currentTime = targetTime;
+          if (pendingPlay.current) {
+            playVideo();
+            pendingPlay.current = false;
+          }
+          videoRef.current.removeEventListener('loadedmetadata', handler);
+        }
+      };
+      videoRef.current.addEventListener('loadedmetadata', handler);
+    } else {
+      videoRef.current.currentTime = targetTime;
+      if (isPlaying) {
+        playVideo();
+      }
+    }
+    
     setTimeout(() => {
       isClipSwitching.current = false;
-    }, 100);
-  }, [clips, getClipPosition, setGlobalCurrentTime]);
+    }, 200);
+  }, [clips, getClipPosition, setGlobalCurrentTime, isPlaying, globalCurrentTime, playVideo]);
 
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.play().catch(console.error);
+        playVideo();
       } else {
         videoRef.current.pause();
       }
     }
-  }, [isPlaying]);
+  }, [isPlaying, playVideo]);
 
   useEffect(() => {
     if (!isPreviewMode || !videoRef.current) return;
@@ -93,25 +131,24 @@ const Preview = () => {
     const { clip, index, localTime } = clipInfo;
     
     if (clip.path !== lastPathRef.current) {
-      videoRef.current.src = convertFileSrc(clip.path);
-      videoRef.current.load();
-      lastPathRef.current = clip.path;
-      setCurrentPreviewClipIndex(index);
+      console.log('Global time changed, switching to clip:', index);
+      switchToClip(index, false);
+    } else {
+      const targetTime = clip.start + localTime;
+      if (Math.abs(videoRef.current.currentTime - targetTime) > 0.2) {
+        console.log('Seeking to:', targetTime);
+        videoRef.current.currentTime = targetTime;
+      }
     }
-    
-    const targetTime = clip.start + localTime;
-    if (Math.abs(videoRef.current.currentTime - targetTime) > 0.2) {
-      videoRef.current.currentTime = targetTime;
-    }
-  }, [globalCurrentTime, isPreviewMode, getCurrentPreviewClip]);
+  }, [globalCurrentTime, isPreviewMode, getCurrentPreviewClip, switchToClip]);
 
   const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || isSeeking.current) return;
     
     if (isClipSwitching.current) return;
 
     if (!isPreviewMode) {
-      if (!activeClip || isSeeking.current) return;
+      if (!activeClip) return;
       
       const videoTime = videoRef.current.currentTime;
       
@@ -137,7 +174,7 @@ const Preview = () => {
     } else {
       const clipInfo = getCurrentPreviewClip();
       if (!clipInfo) {
-        setIsPlaying(false);
+        console.log('No clip info at global time:', globalCurrentTime);
         return;
       }
 
@@ -145,15 +182,21 @@ const Preview = () => {
       const videoTime = videoRef.current.currentTime;
       
       if (videoTime < clip.start) {
+        console.log('Video time before clip start, seeking:', videoTime, clip.start);
         videoRef.current.currentTime = clip.start;
         return;
       }
 
-      if (videoTime >= clip.end) {
+      if (videoTime >= clip.end - 0.05) {
+        console.log('Clip ended, videoTime:', videoTime, 'clip.end:', clip.end);
         const nextIndex = index + 1;
+        
         if (nextIndex < clips.length) {
+          console.log('Switching to next clip:', nextIndex);
+          pendingPlay.current = true;
           switchToClip(nextIndex, true);
         } else {
+          console.log('All clips ended, looping back to start');
           setIsPlaying(false);
           setGlobalCurrentTime(0);
           lastVideoTimeUpdate.current = 0;
@@ -176,13 +219,21 @@ const Preview = () => {
   };
 
   const togglePlay = () => {
-    if (isPreviewMode && clips.length === 0) return;
-    if (!isPreviewMode && !activeClip) return;
+    if (isPreviewMode) {
+      if (clips.length === 0) return;
+      
+      if (!isPlaying) {
+        const clipInfo = getCurrentPreviewClip();
+        if (clipInfo && videoRef.current) {
+          if (clipInfo.clip.path !== lastPathRef.current) {
+            switchToClip(clipInfo.index, false);
+          }
+        }
+      }
+    } else {
+      if (!activeClip) return;
+    }
     setIsPlaying(!isPlaying);
-  };
-
-  const handleLoadedMetadata = () => {
-    // Optional: Force a seek to start time if needed
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,7 +262,7 @@ const Preview = () => {
       videoRef.current.currentTime = targetTime;
       lastVideoTimeUpdate.current = currentTime;
     } else if (isPreviewMode) {
-      const clipInfo = getClipAtGlobalTime(globalCurrentTime);
+      const clipInfo = getCurrentPreviewClip();
       if (clipInfo && videoRef.current) {
         videoRef.current.currentTime = clipInfo.clip.start + clipInfo.localTime;
         lastVideoTimeUpdate.current = globalCurrentTime;
@@ -241,7 +292,12 @@ const Preview = () => {
       }
     } else {
       if (clips.length > 0) {
-        switchToClip(0, true);
+        const clipInfo = getCurrentPreviewClip();
+        if (clipInfo) {
+          switchToClip(clipInfo.index, false);
+        } else {
+          switchToClip(0, true);
+        }
       }
     }
   }, [activeClip?.id, isPreviewMode, clips.length]);
@@ -308,10 +364,14 @@ const Preview = () => {
           src={convertFileSrc(displayClip.path)}
           className="max-h-full max-w-full shadow-2xl"
           onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={() => {
+            if (!isPreviewMode) {
+              setIsPlaying(false);
+            }
+          }}
           onClick={togglePlay}
           onError={(e) => console.error('Video Error:', e, displayClip.path)}
+          preload="auto"
         />
         
         {isPreviewMode && clips.length > 1 && (

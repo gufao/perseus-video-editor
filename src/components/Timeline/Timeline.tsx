@@ -55,20 +55,36 @@ const Timeline = () => {
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     if (draggedIndex !== null && draggedIndex !== index) {
       setDragOverIndex(index);
     }
   };
 
-  const handleDragLeave = () => {
-    setDragOverIndex(null);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
-  const handleDrop = (index: number) => {
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (draggedIndex !== null && draggedIndex !== index) {
-      reorderClips(draggedIndex, index);
+      let targetIndex: number;
+      
+      if (draggedIndex < index) {
+        targetIndex = index - 1;
+      } else {
+        targetIndex = index;
+      }
+      
+      if (targetIndex !== draggedIndex) {
+        reorderClips(draggedIndex, targetIndex);
+      }
     }
+    
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -174,8 +190,8 @@ const Timeline = () => {
                  draggable={!trimming && !isPreviewMode}
                  onDragStart={() => handleDragStart(index)}
                  onDragOver={(e) => handleDragOver(e, index)}
-                 onDragLeave={handleDragLeave}
-                 onDrop={() => handleDrop(index)}
+                 onDragLeave={(e) => handleDragLeave(e)}
+                 onDrop={(e) => handleDrop(e, index)}
                  onClick={() => !isPreviewMode && setActiveClip(clip.id)}
                  className={clsx(
                    "h-20 rounded border cursor-pointer select-none transition flex flex-col justify-between relative overflow-visible group",
